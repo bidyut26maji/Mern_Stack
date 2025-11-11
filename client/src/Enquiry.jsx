@@ -3,8 +3,8 @@ import axios from 'axios'
 
 // Use Vercel backend URL from your deployment guide, or environment variable if provided.
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-const API_BASE_URL = VITE_API_URL || 'https://backend-five-zeta-19.vercel.app/web/api';
-const HEALTH_CHECK_URL = (VITE_API_URL ? VITE_API_URL.replace('/web/api', '') : 'https://backend-five-zeta-19.vercel.app');
+const API_BASE_URL = VITE_API_URL || 'https://backend-five-zeta-19.vercel.app/web/api'; // Corrected URL
+const HEALTH_CHECK_URL = (VITE_API_URL ? VITE_API_URL.replace('/web/api', '') : 'https://backend-five-zeta-19.vercel.app'); // Corrected URL
 
 export default function Enquiry() {
   const [formData, setFormData] = useState({
