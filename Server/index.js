@@ -33,21 +33,39 @@ mongoose.set('strictQuery', false);
 let isConnected = false;
 
 const connectDB = async () => {
-  if (isConnected) {
-    console.log('✅ Using existing MongoDB connection');
+  // Check if already connected
+  if (mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return;
+  }
+
+  // Don't reconnect if already connecting
+  if (mongoose.connection.readyState === 2) {
     return;
   }
 
   try {
     await mongoose.connect(DBURL, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
     });
     isConnected = true;
     console.log('✅ Connected to MongoDB');
+    
+    // Handle connection events
+    mongoose.connection.on('disconnected', () => {
+      console.log('⚠️ MongoDB disconnected');
+      isConnected = false;
+    });
+    
+    mongoose.connection.on('error', (err) => {
+      console.log('❌ MongoDB error:', err.message);
+      isConnected = false;
+    });
   } catch (err) {
     console.log('❌ MongoDB connection failed: ' + err.message);
     isConnected = false;
+    throw err;
   }
 };
 
@@ -55,14 +73,25 @@ const connectDB = async () => {
 app.use(async (req, res, next) => {
   // Always ensure connection for API routes
   if (req.path.startsWith('/web/api')) {
-    if (mongoose.connection.readyState === 0 || mongoose.connection.readyState === 3) {
-      // 0 = disconnected, 3 = disconnecting
+    const state = mongoose.connection.readyState;
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    if (state === 0 || state === 3) {
+      // Disconnected or disconnecting - reconnect
       await connectDB();
     }
-    // Wait a bit if still connecting
-    if (mongoose.connection.readyState === 2) {
-      // 2 = connecting
-      await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait if still connecting
+    if (state === 2) {
+      // Connecting - wait for connection
+      let attempts = 0;
+      while (mongoose.connection.readyState === 2 && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
+    }
+    // Final check - if still not connected, try one more time
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
   next();

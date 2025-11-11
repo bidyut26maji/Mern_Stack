@@ -62,39 +62,71 @@ const EnquiryInsert = async (req, res) => {
 };
 
 // ✅ Get Enquiry List
-const EnquiryList = (_req, res) => {
-  enquiryModel.find()
-    .sort({ createdAt: -1 }) // Sort by newest first
-    .then(enquiryList => {
-      console.log('📋 Fetched', enquiryList.length, 'enquiries');
-      res.status(200).json({ status: 1, message: 'Enquiry list', data: enquiryList });
-    })
-    .catch(err => {
-      console.error('❌ Error fetching enquiries:', err);
-      res.status(500).json({ status: 0, message: 'Error fetching enquiries', error: err.message });
+const EnquiryList = async (_req, res) => {
+  try {
+    // Ensure MongoDB connection is ready
+    const mongoose = require('mongoose');
+    const connectionState = mongoose.connection.readyState;
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    if (connectionState !== 1) {
+      // Connection not ready, wait a bit and try again
+      await new Promise(resolve => setTimeout(resolve, 200));
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ 
+          status: 0, 
+          message: 'Database connection not ready. Please try again.' 
+        });
+      }
+    }
+
+    const enquiryList = await enquiryModel.find()
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .exec();
+    
+    console.log('📋 Fetched', enquiryList.length, 'enquiries');
+    res.status(200).json({ status: 1, message: 'Enquiry list', data: enquiryList });
+  } catch (err) {
+    console.error('❌ Error fetching enquiries:', err);
+    res.status(500).json({ 
+      status: 0, 
+      message: 'Error fetching enquiries', 
+      error: err.message 
     });
+  }
 };
 
 // ✅ Delete Enquiry
-const DeleteRes = (req, res) => {
-  const enquiryId = req.params.id;
+const DeleteRes = async (req, res) => {
+  try {
+    const enquiryId = req.params.id;
 
-  if (!enquiryId) {
-    return res.status(400).json({ status: 0, message: 'Enquiry ID is required' });
-  }
+    if (!enquiryId) {
+      return res.status(400).json({ status: 0, message: 'Enquiry ID is required' });
+    }
 
-  enquiryModel.deleteOne({ _id: enquiryId })
-    .then(delRes => {
-      if (delRes.deletedCount === 0) {
-        return res.status(404).json({ status: 0, message: 'Enquiry not found' });
+    // Ensure MongoDB connection is ready
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ 
+          status: 0, 
+          message: 'Database connection not ready. Please try again.' 
+        });
       }
-      console.log('🗑️ Enquiry deleted:', enquiryId);
-      res.send({ status: 1, message: 'Enquiry deleted successfully', id: enquiryId });
-    })
-    .catch(err => {
-      console.error('❌ Error deleting enquiry:', err);
-      res.status(500).json({ status: 0, message: 'Error deleting enquiry', error: err.message });
-    });
+    }
+
+    const delRes = await enquiryModel.deleteOne({ _id: enquiryId });
+    
+    if (delRes.deletedCount === 0) {
+      return res.status(404).json({ status: 0, message: 'Enquiry not found' });
+    }
+    console.log('🗑️ Enquiry deleted:', enquiryId);
+    res.send({ status: 1, message: 'Enquiry deleted successfully', id: enquiryId });
+  } catch (err) {
+    console.error('❌ Error deleting enquiry:', err);
+    res.status(500).json({ status: 0, message: 'Error deleting enquiry', error: err.message });
+  }
 };
 
 // ✅ Update Enquiry
