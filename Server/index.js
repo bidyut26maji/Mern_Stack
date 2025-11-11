@@ -133,13 +133,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// For Vercel serverless functions, export the app
+// Always export the app for Vercel serverless functions
+// Vercel will handle the serverless execution
+module.exports = app;
+
 // For local development, start the server
-if (process.env.VERCEL) {
-  // Vercel serverless mode
-  module.exports = app;
-} else {
-  // Local development mode
+if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
   const PORT = process.env.PORT || 5000;
   mongoose.connect(DBURL)
     .then(() => {
