@@ -28,7 +28,7 @@ export default function Enquiry() {
       setError('') // Clear previous errors
       console.log('Fetching enquiries from:', `${API_BASE_URL}/enquiry-list`)
       const response = await axios.get(`${API_BASE_URL}/enquiry-list`, {
-        timeout: 10000 // 10 second timeout
+        timeout: 30000 // 30 second timeout
       })
       console.log('Enquiry response:', response.data)
       if (response.data.status === 1) {
