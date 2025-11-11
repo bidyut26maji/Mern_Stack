@@ -71,38 +71,66 @@ const connectDB = async () => {
 
 // Middleware to ensure MongoDB connection before handling requests (for serverless)
 app.use(async (req, res, next) => {
-  // Always ensure connection for API routes
-  if (req.path.startsWith('/web/api')) {
-    const state = mongoose.connection.readyState;
-    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-    if (state === 0 || state === 3) {
-      // Disconnected or disconnecting - reconnect
-      await connectDB();
-    }
-    // Wait if still connecting
-    if (state === 2) {
-      // Connecting - wait for connection
-      let attempts = 0;
-      while (mongoose.connection.readyState === 2 && attempts < 10) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
+  try {
+    // Always ensure connection for API routes
+    if (req.path.startsWith('/web/api')) {
+      const state = mongoose.connection.readyState;
+      // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+      
+      if (state === 0 || state === 3) {
+        // Disconnected or disconnecting - reconnect
+        try {
+          await connectDB();
+        } catch (err) {
+          console.error('Connection error in middleware:', err);
+          // Continue anyway - let the controller handle it
+        }
+      }
+      
+      // Wait if still connecting
+      if (state === 2) {
+        let attempts = 0;
+        while (mongoose.connection.readyState === 2 && attempts < 15) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          attempts++;
+        }
+      }
+      
+      // Final check - if still not connected, try one more time
+      if (mongoose.connection.readyState !== 1) {
+        try {
+          await connectDB();
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (err) {
+          console.error('Final connection attempt failed:', err);
+          // Continue - let controller handle the error
+        }
       }
     }
-    // Final check - if still not connected, try one more time
-    if (mongoose.connection.readyState !== 1) {
-      await connectDB();
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
+    next();
+  } catch (err) {
+    console.error('Middleware error:', err);
+    next(err); // Pass to error handler
   }
-  next();
 });
 
 app.use("/web/api", enquiryRoutes);
 
-// Error handling middleware
+// Error handling middleware (must be last)
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ status: 0, message: 'Internal server error', error: err.message });
+  console.error('Unhandled Error:', err);
+  console.error('Error stack:', err.stack);
+  
+  // Don't send response if headers already sent
+  if (res.headersSent) {
+    return next(err);
+  }
+  
+  res.status(500).json({ 
+    status: 0, 
+    message: err.message || 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 // For Vercel serverless functions, export the app

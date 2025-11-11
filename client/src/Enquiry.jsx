@@ -126,7 +126,23 @@ export default function Enquiry() {
       }
     } catch (err) {
       console.error('Error submitting enquiry:', err)
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to submit enquiry. Make sure the server is running on port 8000.'
+      console.error('Error response:', err.response?.data)
+      
+      // Get error message from response
+      let errorMessage = 'Failed to submit enquiry. Please try again.';
+      
+      if (err.response?.data) {
+        // Use the message from backend
+        errorMessage = err.response.data.message || err.response.data.error || errorMessage;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      // Handle network errors
+      if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+      
       setError(errorMessage)
     } finally {
       setLoading(false)

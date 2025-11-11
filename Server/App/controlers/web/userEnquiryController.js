@@ -12,15 +12,22 @@ const EnquiryInsert = async (req, res) => {
 
     // Ensure MongoDB connection is ready
     const mongoose = require('mongoose');
-    const connectionState = mongoose.connection.readyState;
+    let connectionState = mongoose.connection.readyState;
     // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    
+    // Wait for connection if not ready (with timeout)
     if (connectionState !== 1) {
-      // Connection not ready, wait a bit and try again
-      await new Promise(resolve => setTimeout(resolve, 100));
-      if (mongoose.connection.readyState !== 1) {
+      let attempts = 0;
+      while (connectionState !== 1 && attempts < 20) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        connectionState = mongoose.connection.readyState;
+        attempts++;
+      }
+      
+      if (connectionState !== 1) {
         return res.status(503).send({ 
           status: 0, 
-          message: 'Database connection not ready. Please try again.' 
+          message: 'Database connection not ready. Please try again in a moment.' 
         });
       }
     }
@@ -37,26 +44,44 @@ const EnquiryInsert = async (req, res) => {
     res.send({ status: 1, message: 'Enquiry saved successfully' });
   } catch (err) {
     console.error('❌ Error saving enquiry:', err);
+    console.error('Error details:', {
+      name: err.name,
+      code: err.code,
+      message: err.message,
+      stack: err.stack
+    });
+    
     // Handle duplicate key error
     if (err.code === 11000) {
-      const field = Object.keys(err.keyPattern)[0];
+      const field = Object.keys(err.keyPattern || {})[0] || 'field';
       return res.status(400).send({ 
         status: 0, 
         message: `This ${field} is already registered. Please use a different ${field}.` 
       });
     }
+    
     // Handle validation errors
     if (err.name === 'ValidationError') {
-      const errors = Object.values(err.errors).map(e => e.message).join(', ');
+      const errors = Object.values(err.errors || {}).map(e => e.message).join(', ');
       return res.status(400).send({ 
         status: 0, 
-        message: `Validation error: ${errors}` 
+        message: `Validation error: ${errors || err.message}` 
       });
     }
+    
+    // Handle MongoDB connection errors
+    if (err.name === 'MongoServerError' || err.name === 'MongoNetworkError') {
+      return res.status(503).send({ 
+        status: 0, 
+        message: 'Database connection error. Please try again.' 
+      });
+    }
+    
+    // Generic error response
     res.status(500).send({ 
       status: 0, 
-      message: 'Error while saving enquiry', 
-      error: err.message 
+      message: err.message || 'Error while saving enquiry',
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 };
