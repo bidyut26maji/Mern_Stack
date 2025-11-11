@@ -8,20 +8,6 @@ const EnquiryInsert = async (req, res) => {
     if (!sName || !sEmail || !sPhone || !sMessage) {
       return res.status(400).send({ status: 0, message: 'All fields are required' });
     }
-      let attempts = 0;
-      while (connectionState !== 1 && attempts < 20) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        connectionState = mongoose.connection.readyState;
-        attempts++;
-      }
-      
-      if (connectionState !== 1) {
-        return res.status(503).send({ 
-          status: 0, 
-          message: 'Database connection not ready. Please try again in a moment.' 
-        });
-      }
-    }
 
     const enquiry = new enquiryModel({
       name: sName,
@@ -81,31 +67,9 @@ const EnquiryInsert = async (req, res) => {
 const EnquiryList = async (_req, res) => {
   try {
     console.log('📋 Fetching enquiry list...');
-    
-    // Ensure MongoDB connection is ready
-    const mongoose = require('mongoose');
-    let connectionState = mongoose.connection.readyState;
-    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-    
-    // Wait for connection if not ready (with timeout)
-    if (connectionState !== 1) {
-      console.log('⏳ Waiting for MongoDB connection... State:', connectionState);
-      let attempts = 0;
-      while (connectionState !== 1 && attempts < 20) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        connectionState = mongoose.connection.readyState;
-        attempts++;
-      }
-      
-      if (connectionState !== 1) {
-        console.error('❌ MongoDB connection not ready after waiting. State:', connectionState);
-        return res.status(503).json({ 
-          status: 0, 
-          message: 'Database connection not ready. Please try again in a moment.' 
-        });
-      }
-    }
 
+    // The connection is handled by middleware in index.js.
+    // If the connection is not ready, the query will throw an error which is caught below.
     console.log('✅ MongoDB connected, fetching enquiries...');
     const enquiryList = await enquiryModel.find()
       .sort({ createdAt: -1 }) // Sort by newest first
@@ -144,18 +108,6 @@ const DeleteRes = async (req, res) => {
 
     if (!enquiryId) {
       return res.status(400).json({ status: 0, message: 'Enquiry ID is required' });
-    }
-
-    // Ensure MongoDB connection is ready
-    const mongoose = require('mongoose');
-    if (mongoose.connection.readyState !== 1) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({ 
-          status: 0, 
-          message: 'Database connection not ready. Please try again.' 
-        });
-      }
     }
 
     const delRes = await enquiryModel.deleteOne({ _id: enquiryId });
