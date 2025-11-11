@@ -23,6 +23,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'User Enquiry API Server',
+    endpoints: {
+      health: '/health',
+      api: '/web/api',
+      enquiryList: '/web/api/enquiry-list',
+      enquiryInsert: '/web/api/enquiry-insert'
+    }
+  });
+});
+
 // ✅ Connect to MongoDB
 const DBURL = process.env.DBURL || 'mongodb://127.0.0.1:27017/enquirydb';
 

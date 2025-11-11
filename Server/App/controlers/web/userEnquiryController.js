@@ -89,33 +89,59 @@ const EnquiryInsert = async (req, res) => {
 // ✅ Get Enquiry List
 const EnquiryList = async (_req, res) => {
   try {
+    console.log('📋 Fetching enquiry list...');
+    
     // Ensure MongoDB connection is ready
     const mongoose = require('mongoose');
-    const connectionState = mongoose.connection.readyState;
+    let connectionState = mongoose.connection.readyState;
     // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    
+    // Wait for connection if not ready (with timeout)
     if (connectionState !== 1) {
-      // Connection not ready, wait a bit and try again
-      await new Promise(resolve => setTimeout(resolve, 200));
-      if (mongoose.connection.readyState !== 1) {
+      console.log('⏳ Waiting for MongoDB connection... State:', connectionState);
+      let attempts = 0;
+      while (connectionState !== 1 && attempts < 20) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        connectionState = mongoose.connection.readyState;
+        attempts++;
+      }
+      
+      if (connectionState !== 1) {
+        console.error('❌ MongoDB connection not ready after waiting. State:', connectionState);
         return res.status(503).json({ 
           status: 0, 
-          message: 'Database connection not ready. Please try again.' 
+          message: 'Database connection not ready. Please try again in a moment.' 
         });
       }
     }
 
+    console.log('✅ MongoDB connected, fetching enquiries...');
     const enquiryList = await enquiryModel.find()
       .sort({ createdAt: -1 }) // Sort by newest first
       .exec();
     
     console.log('📋 Fetched', enquiryList.length, 'enquiries');
-    res.status(200).json({ status: 1, message: 'Enquiry list', data: enquiryList });
+    res.status(200).json({ status: 1, message: 'Enquiry list', data: enquiryList || [] });
   } catch (err) {
     console.error('❌ Error fetching enquiries:', err);
+    console.error('Error details:', {
+      name: err.name,
+      message: err.message,
+      stack: err.stack
+    });
+    
+    // Handle MongoDB connection errors
+    if (err.name === 'MongoServerError' || err.name === 'MongoNetworkError' || err.name === 'MongooseError') {
+      return res.status(503).json({ 
+        status: 0, 
+        message: 'Database connection error. Please try again.' 
+      });
+    }
+    
     res.status(500).json({ 
       status: 0, 
-      message: 'Error fetching enquiries', 
-      error: err.message 
+      message: err.message || 'Error fetching enquiries',
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 };

@@ -23,15 +23,34 @@ export default function Enquiry() {
     try {
       setLoading(true)
       setError('') // Clear previous errors
-      const response = await axios.get(`${API_BASE_URL}/enquiry-list`)
+      console.log('Fetching enquiries from:', `${API_BASE_URL}/enquiry-list`)
+      const response = await axios.get(`${API_BASE_URL}/enquiry-list`, {
+        timeout: 10000 // 10 second timeout
+      })
+      console.log('Enquiry response:', response.data)
       if (response.data.status === 1) {
         setEnquiries(response.data.data || [])
+        setError('') // Clear any previous errors
       } else {
         setError(response.data.message || 'Failed to fetch enquiries')
       }
     } catch (err) {
       console.error('Error fetching enquiries:', err)
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch enquiries. Make sure the server is running on port 8000.'
+      console.error('Error response:', err.response?.data)
+      console.error('Error status:', err.response?.status)
+      
+      let errorMessage = 'Failed to fetch enquiries.';
+      
+      if (err.response?.data) {
+        errorMessage = err.response.data.message || err.response.data.error || errorMessage;
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout. Please try again.';
+      } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -46,19 +65,7 @@ export default function Enquiry() {
         if (response.data.status === 'ok') {
           setServerStatus('online')
           // Fetch enquiries after confirming server is online
-          try {
-            setLoading(true)
-            setError('')
-            const enquiryResponse = await axios.get(`${API_BASE_URL}/enquiry-list`)
-            if (enquiryResponse.data.status === 1) {
-              setEnquiries(enquiryResponse.data.data || [])
-            }
-          } catch (err) {
-            console.error('Error fetching enquiries:', err)
-            setError('Failed to fetch enquiries')
-          } finally {
-            setLoading(false)
-          }
+          await fetchEnquiries()
         }
       } catch (err) {
         console.error('Server is offline:', err)
