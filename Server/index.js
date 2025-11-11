@@ -53,8 +53,17 @@ const connectDB = async () => {
 
 // Middleware to ensure MongoDB connection before handling requests (for serverless)
 app.use(async (req, res, next) => {
-  if (process.env.VERCEL && !isConnected && mongoose.connection.readyState === 0) {
-    await connectDB();
+  // Always ensure connection for API routes
+  if (req.path.startsWith('/web/api')) {
+    if (mongoose.connection.readyState === 0 || mongoose.connection.readyState === 3) {
+      // 0 = disconnected, 3 = disconnecting
+      await connectDB();
+    }
+    // Wait a bit if still connecting
+    if (mongoose.connection.readyState === 2) {
+      // 2 = connecting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
   next();
 });

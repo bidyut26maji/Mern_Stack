@@ -1,38 +1,64 @@
 const enquiryModel = require('../../models/enquiry.model');
 
 // ✅ Insert Enquiry
-const EnquiryInsert = (req, res) => {
-  const { sName, sEmail, sPhone, sMessage } = req.body;
+const EnquiryInsert = async (req, res) => {
+  try {
+    const { sName, sEmail, sPhone, sMessage } = req.body;
 
-  // Validation
-  if (!sName || !sEmail || !sPhone || !sMessage) {
-    return res.status(400).send({ status: 0, message: 'All fields are required' });
-  }
+    // Validation
+    if (!sName || !sEmail || !sPhone || !sMessage) {
+      return res.status(400).send({ status: 0, message: 'All fields are required' });
+    }
 
-  const enquiry = new enquiryModel({
-    name: sName,
-    email: sEmail,
-    phone: sPhone,
-    message: sMessage
-  });
-
-  enquiry.save()
-    .then((savedEnquiry) => {
-      console.log('✅ Enquiry saved:', savedEnquiry._id);
-      res.send({ status: 1, message: 'Enquiry saved successfully' });
-    })
-    .catch(err => {
-      console.error('❌ Error saving enquiry:', err);
-      // Handle duplicate key error
-      if (err.code === 11000) {
-        const field = Object.keys(err.keyPattern)[0];
-        return res.status(400).send({ 
+    // Ensure MongoDB connection is ready
+    const mongoose = require('mongoose');
+    const connectionState = mongoose.connection.readyState;
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    if (connectionState !== 1) {
+      // Connection not ready, wait a bit and try again
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).send({ 
           status: 0, 
-          message: `This ${field} is already registered. Please use a different ${field}.` 
+          message: 'Database connection not ready. Please try again.' 
         });
       }
-      res.status(500).send({ status: 0, message: 'Error while saving enquiry', error: err.message });
+    }
+
+    const enquiry = new enquiryModel({
+      name: sName,
+      email: sEmail,
+      phone: sPhone,
+      message: sMessage
     });
+
+    const savedEnquiry = await enquiry.save();
+    console.log('✅ Enquiry saved:', savedEnquiry._id);
+    res.send({ status: 1, message: 'Enquiry saved successfully' });
+  } catch (err) {
+    console.error('❌ Error saving enquiry:', err);
+    // Handle duplicate key error
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      return res.status(400).send({ 
+        status: 0, 
+        message: `This ${field} is already registered. Please use a different ${field}.` 
+      });
+    }
+    // Handle validation errors
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map(e => e.message).join(', ');
+      return res.status(400).send({ 
+        status: 0, 
+        message: `Validation error: ${errors}` 
+      });
+    }
+    res.status(500).send({ 
+      status: 0, 
+      message: 'Error while saving enquiry', 
+      error: err.message 
+    });
+  }
 };
 
 // ✅ Get Enquiry List
