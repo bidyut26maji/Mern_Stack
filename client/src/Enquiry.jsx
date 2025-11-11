@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 
-const API_BASE_URL = 'http://localhost:8000/web/api'
+// Use Vercel backend URL in production, localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-five-zeta-19.vercel.app/web/api'
+const HEALTH_CHECK_URL = import.meta.env.VITE_API_URL?.replace('/web/api', '') || 'https://backend-five-zeta-19.vercel.app'
 
 export default function Enquiry() {
   const [formData, setFormData] = useState({
@@ -40,7 +42,7 @@ export default function Enquiry() {
   useEffect(() => {
     const checkServerStatus = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/health')
+        const response = await axios.get(`${HEALTH_CHECK_URL}/health`)
         if (response.data.status === 'ok') {
           setServerStatus('online')
           // Fetch enquiries after confirming server is online
@@ -61,7 +63,7 @@ export default function Enquiry() {
       } catch (err) {
         console.error('Server is offline:', err)
         setServerStatus('offline')
-        setError('Cannot connect to server. Make sure the backend is running on port 8000.')
+        setError('Cannot connect to server. Please check if the backend is deployed correctly.')
       }
     }
     checkServerStatus()
