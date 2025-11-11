@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 
 // Use Vercel backend URL in production, localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backend-mu-eight-48.vercel.app/'
-const HEALTH_CHECK_URL = import.meta.env.VITE_API_URL?.replace('/web/api', '') || 'https://backend-mu-eight-48.vercel.app/'
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+// Default to your Vercel URL if the environment variable is not set
+const API_BASE_URL = VITE_API_URL || 'https://backend-mu-eight-48.vercel.app/web/api';
+const HEALTH_CHECK_URL = VITE_API_URL ? VITE_API_URL.replace('/web/api', '') : 'https://backend-mu-eight-48.vercel.app';
 
 export default function Enquiry() {
   const [formData, setFormData] = useState({
