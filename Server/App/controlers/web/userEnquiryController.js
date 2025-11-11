@@ -4,19 +4,10 @@ const enquiryModel = require('../../models/enquiry.model');
 const EnquiryInsert = async (req, res) => {
   try {
     const { sName, sEmail, sPhone, sMessage } = req.body;
-
     // Validation
     if (!sName || !sEmail || !sPhone || !sMessage) {
       return res.status(400).send({ status: 0, message: 'All fields are required' });
     }
-
-    // Ensure MongoDB connection is ready
-    const mongoose = require('mongoose');
-    let connectionState = mongoose.connection.readyState;
-    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-    
-    // Wait for connection if not ready (with timeout)
-    if (connectionState !== 1) {
       let attempts = 0;
       while (connectionState !== 1 && attempts < 20) {
         await new Promise(resolve => setTimeout(resolve, 200));
